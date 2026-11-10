@@ -29,6 +29,7 @@ h("div",{class:"go full"},[btn,msg]),
 h("p",{class:"alt full"},["Need to attach files, or add fund, co-invest or secondary details? ",h("a",{href:FULL,target:"_blank",rel:"noopener"},["Use the full form"]),"."])
 ]);
 sec.append(f);
+try{var fr=new URLSearchParams(location.search).get("from");if(fr)f.elements.source.value=fr.slice(0,60)}catch(e){}
 f.addEventListener("submit",function(e){e.preventDefault();msg.textContent="";
 var d={};new FormData(f).forEach(function(v,k){d[k]=typeof v==="string"?v.trim():v});d.share=f.elements.share.checked;
 var need={name:"your name",email:"your email",company:"a company or fund name",oneLiner:"the one-line description",pitch:"your pitch"};
