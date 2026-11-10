@@ -1,17 +1,19 @@
 const KINDS = ["Startup", "Fund", "Co-invest", "Secondary"];
 const EXTRA = {
-  Startup: [["raising", "Raising"], ["investors", "Existing investors"]],
-  Fund: [["size", "Target fund size"], ["close", "Next close date"], ["gpc", "GP commit"], ["lps", "Anchor or existing LPs"], ["strategy", "Fund strategy"], ["track", "Track record"]],
-  "Co-invest": [["company", "Co-invest company"], ["round", "Co-invest round and lead"], ["alloc", "Co-invest allocation"], ["terms", "Co-invest valuation or terms"], ["deadline", "Co-invest deadline"]],
-  Secondary: [["company", "Secondary company"], ["seller", "Secondary seller"], ["block", "Secondary block size"], ["price", "Secondary price or discount"], ["rofr", "Secondary transfer restrictions"]]
+  Startup: [["raising", "Raising", "raising"], ["investors", "Existing investors", "investors"]],
+  Fund: [["size", "Target fund size", "fundSize"], ["close", "Next close date", "fundClose"], ["gpc", "GP commit", "gpCommit"], ["lps", "Anchor or existing LPs", "fundLps"], ["strategy", "Fund strategy", "fundStrategy"], ["track", "Track record", "fundTrack"]],
+  "Co-invest": [["company", "Co-invest company", "coCompany"], ["round", "Co-invest round and lead", "coRound"], ["alloc", "Co-invest allocation", "coAlloc"], ["terms", "Co-invest valuation or terms", "coTerms"], ["deadline", "Co-invest deadline", "coDeadline"]],
+  Secondary: [["company", "Secondary company", "secCompany"], ["seller", "Secondary seller", "secSeller"], ["block", "Secondary block size", "secBlock"], ["price", "Secondary price or discount", "secPrice"], ["rofr", "Secondary transfer restrictions", "secRofr"]]
 };
+const FLAT = [].concat(...Object.values(EXTRA)).map((e) => e[2]);
 const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
 module.exports = async (req, res) => {
   const hook = process.env.AIRTABLE_WEBHOOK_URL;
   if (!hook) return res.status(500).json({ ok: false, error: "Not configured." });
   let payload;
   if (req.method === "GET" && process.env.SAMPLE_KEY && req.query.sample === process.env.SAMPLE_KEY) {
-    payload = { name: "Sample Founder", email: "founder@example.com", company: "Sample Co", kind: "Startup", oneLiner: "One line about the company", pitch: "A longer pitch body.", links: "https://example.com/deck", linkedin: "https://www.linkedin.com/in/sample", source: "LinkedIn", share: true };
+    payload = { name: "Schema Sample", email: "jason@eviltwincapital.com", company: "TEST schema sample (delete me)", kind: "Startup", oneLiner: "Test entry created while updating the pitch form", pitch: "test", links: "https://example.com", linkedin: "https://www.linkedin.com/in/sample", source: "setup", share: false, deckName: "sample.pdf (1 of 1 pages read)", deckText: "[Slide 1] sample" };
+    FLAT.forEach((k) => { payload[k] = "sample"; });
   } else if (req.method === "POST") {
     let b = req.body || {};
     if (typeof b === "string") { try { b = JSON.parse(b); } catch (e) { b = {}; } }
@@ -24,11 +26,15 @@ module.exports = async (req, res) => {
     };
     if (payload.linkedin && !/^https?:\/\//i.test(payload.linkedin)) payload.linkedin = "https://" + payload.linkedin;
     const x = b.extra && typeof b.extra === "object" ? b.extra : {};
-    const lines = (EXTRA[payload.kind] || []).map(([k, label]) => {
+    FLAT.forEach((k) => { payload[k] = ""; });
+    const lines = (EXTRA[payload.kind] || []).map(([k, label, flat]) => {
       const v = clip(x[k], 1500).replace(/\s*\n\s*/g, " ");
+      payload[flat] = v;
       return v ? label + ": " + v : "";
     }).filter(Boolean);
     if (lines.length && payload.pitch) payload.pitch = (payload.pitch + "\n\n--- " + payload.kind + " details ---\n" + lines.join("\n")).slice(0, 30000);
+    payload.deckName = clip(b.deckName, 200);
+    payload.deckText = clip(b.deckText, 20000);
     const missing = ["name", "email", "company", "kind", "oneLiner", "pitch"].filter((k) => !payload[k]);
     if (missing.length) return res.status(400).json({ ok: false, error: "Please fill in every required field." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(payload.email)) return res.status(400).json({ ok: false, error: "That email address doesn't look right." });
