@@ -5,7 +5,15 @@ const EXTRA = {
   "Co-invest": [["company", "Co-invest company", "coCompany"], ["round", "Co-invest round and lead", "coRound"], ["alloc", "Co-invest allocation", "coAlloc"], ["terms", "Co-invest valuation or terms", "coTerms"], ["deadline", "Co-invest deadline", "coDeadline"]],
   Secondary: [["company", "Secondary company", "secCompany"], ["seller", "Secondary seller", "secSeller"], ["block", "Secondary block size", "secBlock"], ["price", "Secondary price or discount", "secPrice"], ["rofr", "Secondary transfer restrictions", "secRofr"]]
 };
-const FLAT = [].concat(...Object.values(EXTRA)).map((e) => e[2]);
+const COMMON = [["role", "Role", "role"], ["location", "Location", "location"], ["cofounders", "Co-founders", "cofounders"], ["website", "Website", "website"], ["video", "Video or demo link", null]];
+const M = { sector: ["sector", "Sector", "sector"], stage: ["stage", "Stage", "stage"], founded: ["founded", "Year founded", "founded"], teamSize: ["teamSize", "Team size", "teamSize"], traction: ["traction", "Traction", "traction"], whyNow: ["whyNow", "Why now", "whyNow"], whyTeam: ["whyTeam", "Why this team", "whyTeam"], competition: ["competition", "Competition", "competition"], roundTerms: ["roundTerms", "Terms", "roundTerms"], committed: ["committed", "Committed so far", "committed"], useOfFunds: ["useOfFunds", "Use of funds", "useOfFunds"] };
+const MORE = {
+  Startup: [M.sector, M.stage, M.founded, M.teamSize, M.traction, M.whyNow, M.whyTeam, M.competition, M.roundTerms, M.committed, M.useOfFunds],
+  Fund: [M.whyNow, M.whyTeam, M.committed],
+  "Co-invest": [M.traction, M.whyNow],
+  Secondary: [M.traction, M.whyNow]
+};
+const FLAT = [].concat(...Object.values(EXTRA)).map((e) => e[2]).concat(COMMON.map((e) => e[2]).filter(Boolean), Object.keys(M));
 const clip = (v, n) => String(v == null ? "" : v).trim().slice(0, n);
 module.exports = async (req, res) => {
   const hook = process.env.AIRTABLE_WEBHOOK_URL;
@@ -27,9 +35,11 @@ module.exports = async (req, res) => {
     if (payload.linkedin && !/^https?:\/\//i.test(payload.linkedin)) payload.linkedin = "https://" + payload.linkedin;
     const x = b.extra && typeof b.extra === "object" ? b.extra : {};
     FLAT.forEach((k) => { payload[k] = ""; });
-    const lines = (EXTRA[payload.kind] || []).map(([k, label, flat]) => {
-      const v = clip(x[k], 1500).replace(/\s*\n\s*/g, " ");
-      payload[flat] = v;
+    const lines = (EXTRA[payload.kind] || []).concat(COMMON, MORE[payload.kind] || []).map(([k, label, flat]) => {
+      let v = clip(x[k], 3000).replace(/\s*\n\s*/g, " ");
+      if (k === "website" && v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+      if (flat) payload[flat] = v;
+      else if (k === "video" && v) payload.links = (payload.links ? payload.links + "\n" : "") + v;
       return v ? label + ": " + v : "";
     }).filter(Boolean);
     if (lines.length && payload.pitch) payload.pitch = (payload.pitch + "\n\n--- " + payload.kind + " details ---\n" + lines.join("\n")).slice(0, 30000);
